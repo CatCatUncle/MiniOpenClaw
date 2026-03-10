@@ -1,1 +1,5 @@
-"""Channel adapters (CLI, Telegram, Feishu, ...)."""
+"""Channel adapters and manager."""
+
+from miniopenclaw.channels.manager import ChannelManager
+
+__all__ = ["ChannelManager"]

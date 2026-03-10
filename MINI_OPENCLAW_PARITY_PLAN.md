@@ -84,23 +84,23 @@
 ## 4. 工具与 Agent Loop 阶段（Week 4-5）
 
 ### 4.1 工具系统
-- [ ] Tool schema（name/description/json schema）
-- [ ] 执行器（validate -> run -> summarize）
-- [ ] 首批工具：
-  - [ ] 读文件
-  - [ ] 写文件
-  - [ ] shell（白名单）
-  - [ ] web fetch（可选）
+- [x] Tool schema（name/description/json schema）
+- [x] 执行器（validate -> run -> summarize）
+- [x] 首批工具：
+  - [x] 读文件
+  - [x] 写文件
+  - [x] shell（白名单）
+  - [x] web fetch（可选）
 
 ### 4.2 安全边界
-- [ ] 工作目录沙箱限制
-- [ ] 命令白名单 + 危险命令阻断
-- [ ] 高风险操作确认机制
+- [x] 工作目录沙箱限制
+- [x] 命令白名单 + 危险命令阻断
+- [x] 高风险操作确认机制
 
 ### 4.3 Agent 循环
-- [ ] `plan -> act -> observe` 最大步数
-- [ ] 工具失败恢复策略
-- [ ] 用户中断处理
+- [x] `plan -> act -> observe` 最大步数
+- [x] 工具失败恢复策略
+- [x] 用户中断处理
 
 验收：可完成“读文件->修改->保存->反馈”的闭环任务。
 
@@ -109,21 +109,21 @@
 ## 5. 多渠道阶段（Week 6-7）
 
 ### 5.1 渠道抽象
-- [ ] `BaseChannel`：`start/stop/send_message`
-- [ ] `ChannelManager`：注册、启停、健康检查
-- [ ] `Gateway` 命令：并发运行所有启用渠道
+- [x] `BaseChannel`：`start/stop/send_message`
+- [x] `ChannelManager`：注册、启停、健康检查
+- [x] `Gateway` 命令：并发运行所有启用渠道
 
 ### 5.2 Telegram 接入
-- [ ] Bot token 配置
-- [ ] 入站消息解析（私聊/群聊/thread）
-- [ ] 出站文本与长消息分片
-- [ ] 用户白名单 `allowFrom`
+- [x] Bot token 配置
+- [x] 入站消息解析（私聊/群聊/thread）
+- [x] 出站文本与长消息分片
+- [x] 用户白名单 `allowFrom`
 
 ### 5.3 飞书接入
-- [ ] App credentials 配置
-- [ ] webhook/event 处理
-- [ ] 消息发送与鉴权
-- [ ] 用户/群权限策略
+- [x] App credentials 配置
+- [x] webhook/event 处理
+- [x] 消息发送与鉴权
+- [x] 用户/群权限策略
 
 验收：同一个 core 对话逻辑，CLI/Telegram/飞书均可回复。
 

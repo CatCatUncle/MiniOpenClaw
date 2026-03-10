@@ -33,6 +33,13 @@ def _to_float(value: str | None, default: float) -> float:
         return default
 
 
+def _to_list(value: str | None, default: list[str]) -> list[str]:
+    if value is None:
+        return list(default)
+    items = [x.strip() for x in value.split(",")]
+    return [x for x in items if x]
+
+
 def _default_model(provider: str) -> str:
     key = provider.lower()
     if key == "gemini":
@@ -69,4 +76,28 @@ def load_config() -> Config:
         anthropic_base_url=os.getenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com"),
         ark_api_key=os.getenv("ARK_API_KEY", os.getenv("VOLCENGINE_API_KEY", "")),
         ark_base_url=os.getenv("ARK_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3"),
+        search_provider=os.getenv("MINICLAW_SEARCH_PROVIDER", "brave"),
+        brave_search_api_key=os.getenv("BRAVE_SEARCH_API_KEY", ""),
+        tavily_api_key=os.getenv("TAVILY_API_KEY", ""),
+        workspace_root=os.getenv("MINICLAW_WORKSPACE_ROOT", "."),
+        shell_allow_prefixes=_to_list(
+            os.getenv("MINICLAW_SHELL_ALLOW_PREFIXES"),
+            ["ls", "cat", "rg", "sed", "head", "tail", "pwd", "echo", "mkdir"],
+        ),
+        max_agent_steps=_to_int(os.getenv("MINICLAW_MAX_AGENT_STEPS"), 8),
+        telegram_enabled=_to_bool(os.getenv("MINICLAW_TELEGRAM_ENABLED"), False),
+        telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
+        telegram_allow_from=_to_list(os.getenv("TELEGRAM_ALLOW_FROM"), []),
+        telegram_poll_interval_seconds=_to_float(os.getenv("TELEGRAM_POLL_INTERVAL_SECONDS"), 1.5),
+        telegram_max_chunk_chars=_to_int(os.getenv("TELEGRAM_MAX_CHUNK_CHARS"), 3500),
+        feishu_enabled=_to_bool(os.getenv("MINICLAW_FEISHU_ENABLED"), False),
+        feishu_app_id=os.getenv("FEISHU_APP_ID", ""),
+        feishu_app_secret=os.getenv("FEISHU_APP_SECRET", ""),
+        feishu_verify_token=os.getenv("FEISHU_VERIFY_TOKEN", ""),
+        feishu_webhook_host=os.getenv("FEISHU_WEBHOOK_HOST", "127.0.0.1"),
+        feishu_webhook_port=_to_int(os.getenv("FEISHU_WEBHOOK_PORT"), 8765),
+        feishu_webhook_path=os.getenv("FEISHU_WEBHOOK_PATH", "/feishu/webhook"),
+        feishu_allow_from=_to_list(os.getenv("FEISHU_ALLOW_FROM"), []),
+        feishu_allow_chat_ids=_to_list(os.getenv("FEISHU_ALLOW_CHAT_IDS"), []),
+        feishu_max_chunk_chars=_to_int(os.getenv("FEISHU_MAX_CHUNK_CHARS"), 1800),
     )
