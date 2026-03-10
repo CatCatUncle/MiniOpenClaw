@@ -13,9 +13,12 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 from rich.console import Console
 
-from miniopenclaw.core.agent_loop import EchoAgentLoop
+from miniopenclaw.config.loader import load_config
+from miniopenclaw.core.agent_loop import ProviderAgentLoop
 from miniopenclaw.core.events import AgentResponse, MessageEvent
 from miniopenclaw.core.router import AgentRouter
+from miniopenclaw.providers.errors import ProviderError
+from miniopenclaw.providers.factory import create_provider
 from miniopenclaw.session.manager import SessionManager
 
 AGENT_HEADER = "🦞 miniOpenClaw"
@@ -83,13 +86,27 @@ def _build_router(
     session_store: str,
     max_turns: int,
     max_context_chars: int,
+    provider: str | None,
+    model: str | None,
+    stream: bool | None,
 ) -> tuple[AgentRouter, SessionManager]:
+    cfg = load_config()
+    if provider:
+        cfg.provider = provider
+    if model:
+        cfg.model = model
+    if stream is not None:
+        cfg.stream = stream
+
+    provider_instance = create_provider(cfg)
+    agent_loop = ProviderAgentLoop(provider=provider_instance, model=cfg.model, stream=cfg.stream)
+
     manager = SessionManager(
         storage_path=session_store,
         max_turns=max_turns,
         max_context_chars=max_context_chars,
     )
-    router = AgentRouter(agent_loop=EchoAgentLoop(), session_manager=manager)
+    router = AgentRouter(agent_loop=agent_loop, session_manager=manager)
     return router, manager
 
 
@@ -156,6 +173,9 @@ def agent(
     channel: str = typer.Option("cli", "--channel", help="Inbound channel name"),
     user_id: str = typer.Option("local-user", "--user-id", help="User id in the source channel"),
     thread_id: str = typer.Option("default", "--thread-id", help="Thread/session identifier"),
+    provider: str = typer.Option(None, "--provider", help="Provider: gemini/openai/claude/ark/openai_compat"),
+    model: str = typer.Option(None, "--model", help="Model name for the selected provider"),
+    stream: bool | None = typer.Option(None, "--stream/--no-stream", help="Enable/disable streaming responses"),
     session_store: str = typer.Option(
         "~/.miniopenclaw/sessions.json",
         "--session-store",
@@ -165,7 +185,18 @@ def agent(
     max_context_chars: int = typer.Option(6000, "--max-context-chars", help="Max chars kept in context"),
 ) -> None:
     """Run one-shot or interactive chat through the core router."""
-    router, session_manager = _build_router(session_store, max_turns, max_context_chars)
+    try:
+        router, session_manager = _build_router(
+            session_store,
+            max_turns,
+            max_context_chars,
+            provider,
+            model,
+            stream,
+        )
+    except ProviderError as exc:
+        console.print(f"[red]Provider config error:[/red] {exc.user_message}")
+        raise typer.Exit(1)
 
     if message:
         event = MessageEvent(channel=channel, user_id=user_id, thread_id=thread_id, content=message)

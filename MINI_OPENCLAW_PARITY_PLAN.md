@@ -67,15 +67,15 @@
 ## 3. Provider 阶段（Week 3）
 
 ### 3.1 Provider 抽象
-- [ ] `BaseProvider`：`generate()` / `stream_generate()`
-- [ ] `GeminiProvider`（AICodeMirror base_url）
-- [ ] `OpenAICompatProvider`（兼容 OpenRouter/vLLM）
-- [ ] Provider 工厂（按 config 选择）
+- [x] `BaseProvider`：`generate()` / `stream_generate()`
+- [x] `GeminiProvider`（AICodeMirror base_url）
+- [x] `OpenAICompatProvider`（兼容 OpenRouter/vLLM）
+- [x] Provider 工厂（按 config 选择）
 
 ### 3.2 鲁棒性
-- [ ] 超时、重试（指数退避）
-- [ ] 错误分级（认证/限流/网络/服务）
-- [ ] 统一错误提示与日志字段
+- [x] 超时、重试（指数退避）
+- [x] 错误分级（认证/限流/网络/服务）
+- [x] 统一错误提示与日志字段
 
 验收：切换 provider 不改 core 代码。
 

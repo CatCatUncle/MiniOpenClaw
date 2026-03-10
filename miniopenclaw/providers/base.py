@@ -2,14 +2,25 @@
 
 from __future__ import annotations
 
-from typing import Iterator, Protocol
+from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from typing import TypedDict
 
 
-class BaseProvider(Protocol):
+class ChatMessage(TypedDict):
+    """Normalized chat message shape passed to providers."""
+
+    role: str
+    content: str
+
+
+class BaseProvider(ABC):
     """Unified provider contract for model backends."""
 
-    def generate(self, prompt: str) -> str:
-        """Return one complete response."""
+    @abstractmethod
+    def generate(self, messages: list[ChatMessage], model: str) -> str:
+        """Return one complete response text."""
 
-    def stream_generate(self, prompt: str) -> Iterator[str]:
-        """Return a streamed response iterator."""
+    @abstractmethod
+    def stream_generate(self, messages: list[ChatMessage], model: str) -> Iterator[str]:
+        """Yield streaming response chunks."""
