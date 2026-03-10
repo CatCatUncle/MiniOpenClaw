@@ -22,25 +22,25 @@
 ## 1. 架构阶段（Week 1）
 
 ### 1.1 目录与模块骨架
-- [ ] 新建 `miniopenclaw/` 包结构：
-  - [ ] `core/`（agent loop, router, events）
-  - [ ] `providers/`
-  - [ ] `channels/`
-  - [ ] `session/`
-  - [ ] `memory/`
-  - [ ] `tools/`
-  - [ ] `skills/`
-  - [ ] `cron/`
-  - [ ] `config/`
-  - [ ] `cli/`
-- [ ] `__main__.py` + Typer 命令入口
+- [x] 新建 `miniopenclaw/` 包结构：
+  - [x] `core/`（agent loop, router, events）
+  - [x] `providers/`
+  - [x] `channels/`
+  - [x] `session/`
+  - [x] `memory/`
+  - [x] `tools/`
+  - [x] `skills/`
+  - [x] `cron/`
+  - [x] `config/`
+  - [x] `cli/`
+- [x] `__main__.py` + Typer 命令入口
 
 验收：`uv run python -m miniopenclaw --help` 能工作。
 
 ### 1.2 统一消息协议（关键）
-- [ ] 定义 `MessageEvent`（channel/user/thread/content/media/ts）
-- [ ] 定义 `AgentResponse`（text/chunks/tool_calls/status）
-- [ ] 统一“渠道入站 -> 核心 -> 渠道出站”数据结构
+- [x] 定义 `MessageEvent`（channel/user/thread/content/media/ts）
+- [x] 定义 `AgentResponse`（text/chunks/tool_calls/status）
+- [x] 统一“渠道入站 -> 核心 -> 渠道出站”数据结构
 
 验收：CLI、Telegram、飞书都可复用同一 core 接口。
 
@@ -49,16 +49,16 @@
 ## 2. CLI 与会话阶段（Week 2）
 
 ### 2.1 CLI 稳定化
-- [ ] `prompt_toolkit` + `FileHistory`
-- [ ] `patch_stdout` 处理流式输出
-- [ ] 终端状态恢复（防退格异常）
-- [ ] 统一输出样式（`🦞 miniOpenClaw`）
+- [x] `prompt_toolkit` + `FileHistory`
+- [x] `patch_stdout` 处理流式输出
+- [x] 终端状态恢复（防退格异常）
+- [x] 统一输出样式（`🦞 miniOpenClaw`）
 
 ### 2.2 会话管理
-- [ ] `SessionManager`（按 `channel:user:thread` 隔离）
-- [ ] 会话持久化（JSON/SQLite）
-- [ ] 上下文裁剪（轮数 + 字符上限）
-- [ ] `/clear /history /session` 命令
+- [x] `SessionManager`（按 `channel:user:thread` 隔离）
+- [x] 会话持久化（JSON/SQLite）
+- [x] 上下文裁剪（轮数 + 字符上限）
+- [x] `/clear /history /session` 命令
 
 验收：同一用户上下文连续可用，重启后可恢复。
 

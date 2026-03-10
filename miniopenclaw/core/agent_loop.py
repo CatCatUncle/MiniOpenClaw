@@ -19,4 +19,4 @@ class EchoAgentLoop:
 
     def run(self, event: MessageEvent, context: list[MessageEvent]) -> AgentResponse:
         del context
-        return AgentResponse(text=f"1 + 1 = 2\nI received: {event.content}")
+        return AgentResponse(text=f"I received: {event.content}")
