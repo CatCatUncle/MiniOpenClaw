@@ -21,6 +21,7 @@ from miniopenclaw.core.router import AgentRouter
 from miniopenclaw.providers.errors import ProviderError
 from miniopenclaw.runtime import build_runtime
 from miniopenclaw.session.manager import SessionManager
+from miniopenclaw.skills import SkillLoader
 from miniopenclaw.tools import ToolExecutor
 
 AGENT_HEADER = "🦞 miniOpenClaw"
@@ -127,6 +128,7 @@ def _handle_slash_command(
     text: str,
     tool_executor: ToolExecutor,
     session_manager: SessionManager,
+    skill_loader: SkillLoader | None,
     pending_confirmation: dict[str, object],
     channel: str,
     user_id: str,
@@ -200,6 +202,23 @@ def _handle_slash_command(
             console.print(f"  {tool_call.result.replace(chr(10), chr(10) + '  ')}")
         return True, thread_id
 
+    if command == "/findskill":
+        if len(parts) < 2:
+            console.print("Usage: /findskill <query> OR /findskill <query> || <task>")
+            return True, thread_id
+        payload = text[len("/findskill") :].strip()
+        if "||" in payload:
+            query, task = [x.strip() for x in payload.split("||", 1)]
+        else:
+            query, task = payload, payload
+        call = tool_executor.execute("find_skill", {"query": query, "task": task})
+        if call.error:
+            console.print(f"[red]find_skill failed:[/red] {call.error}")
+        else:
+            console.print("🧩 find_skill")
+            console.print(f"  {call.result.replace(chr(10), chr(10) + '  ')}")
+        return True, thread_id
+
     if command == "/read":
         if len(parts) < 2:
             console.print("Usage: /read <path>")
@@ -268,10 +287,93 @@ def _handle_slash_command(
             console.print(f"  {call.result.replace(chr(10), chr(10) + '  ')}")
         return True, thread_id
 
+    if command == "/skills":
+        if skill_loader is None:
+            console.print("Skill system is disabled. Set MINICLAW_SKILL_ENABLED=true.")
+            return True, thread_id
+
+        if len(parts) == 1 or parts[1].lower() == "list":
+            names = skill_loader.list_skills()
+            console.print(f"Skills ({len(names)}):")
+            if not names:
+                console.print("  (none)")
+            else:
+                for name in names:
+                    console.print(f"  - {name}")
+            return True, thread_id
+
+        action = parts[1].lower()
+        if action == "refresh":
+            trace = skill_loader.refresh()
+            console.print(f"Skills refreshed: {trace.get('skill_count', 0)} loaded")
+            return True, thread_id
+
+        if action == "match":
+            query = text.split(None, 2)[2].strip() if len(parts) >= 3 else ""
+            if not query:
+                console.print("Usage: /skills match <text>")
+                return True, thread_id
+            selected, trace = skill_loader.resolve_for_text(query)
+            console.print(f"Matched ({len(selected)}): {[s.name for s in selected]}")
+            console.print(f"Trace: {trace}")
+            return True, thread_id
+
+        if action == "show":
+            if len(parts) < 3:
+                console.print("Usage: /skills show <skill_name>")
+                return True, thread_id
+            target = parts[2].lower()
+            skill = skill_loader.get_skill(target)
+            if not skill:
+                console.print(f"Skill not found: {target}")
+                return True, thread_id
+            console.print(f"Skill: {skill.name}")
+            console.print(f"Path: {skill.path}")
+            console.print(f"Description: {skill.description or '(empty)'}")
+            return True, thread_id
+
+        if action == "create":
+            if len(parts) < 3:
+                console.print("Usage: /skills create <name> [description]")
+                return True, thread_id
+            name = parts[2]
+            description = text.split(None, 3)[3].strip() if len(parts) >= 4 else ""
+            if name.lower() in {"new-skill", "my-new-skill", "skill", "test-skill"}:
+                suggestions = skill_loader.suggest_names(description or name)
+                console.print(
+                    "Name is too generic. Suggested names:\n"
+                    + "\n".join([f"  - {x}" for x in suggestions])
+                )
+                console.print(f"Use: /skills create {suggestions[0]} {description}".rstrip())
+                return True, thread_id
+            result = skill_loader.create_skill(name=name, description=description)
+            if not result.get("ok"):
+                console.print(f"[red]Create failed:[/red] {result.get('error', 'unknown error')}")
+                return True, thread_id
+            console.print(f"Skill created: {result['name']}")
+            console.print(f"Path: {result['path']}")
+            return True, thread_id
+
+        if action == "suggest":
+            purpose = text.split(None, 2)[2].strip() if len(parts) >= 3 else ""
+            if not purpose:
+                console.print("Usage: /skills suggest <purpose>")
+                return True, thread_id
+            suggestions = skill_loader.suggest_names(purpose)
+            console.print("Suggested names:")
+            for item in suggestions:
+                console.print(f"  - {item}")
+            console.print(f"Create with: /skills create {suggestions[0]} {purpose}")
+            return True, thread_id
+
+        console.print("Usage: /skills [list|refresh|match <text>|show <name>|suggest <purpose>|create <name> [description]]")
+        return True, thread_id
+
     if command in {"/help", "/?"}:
         console.print(
             "Slash commands: /help, /clear, /history [n], /session [thread_id], "
-            "/web [provider] <query>, /read <path>, /write <path> <content>, /shell <cmd>, /confirm, /exit"
+            "/web [provider] <query>, /findskill <query> [|| task], /read <path>, /write <path> <content>, /shell <cmd>, "
+            "/confirm, /skills [list|refresh|match <text>|show <name>|suggest <purpose>|create <name> [description]], /exit"
         )
         return True, thread_id
 
@@ -323,6 +425,14 @@ def agent(
     prompt = _make_prompt_session()
     current_thread_id = thread_id
     pending_confirmation: dict[str, object] = {}
+    skill_loader: SkillLoader | None = None
+    cfg = load_config()
+    if cfg.skill_enabled:
+        skill_loader = SkillLoader(
+            search_paths=cfg.skill_paths,
+            max_skills=cfg.skill_max_loaded,
+            script_timeout_seconds=cfg.skill_script_timeout_seconds,
+        )
 
     console.print("Interactive mode (type /help, /exit to quit)")
     while True:
@@ -344,6 +454,7 @@ def agent(
             cleaned,
             tool_executor=tool_executor,
             session_manager=session_manager,
+            skill_loader=skill_loader,
             pending_confirmation=pending_confirmation,
             channel=channel,
             user_id=user_id,

@@ -58,3 +58,21 @@ class Config:
     feishu_max_chunk_chars: int = 1800
 
     channel_allowlist: list[str] | None = None
+
+    memory_enabled: bool = True
+    memory_path: str = "~/.miniopenclaw/memory.json"
+    memory_max_items: int = 400
+    memory_retrieve_k: int = 4
+    memory_summary_max_chars: int = 360
+
+    skill_enabled: bool = True
+    skill_paths: list[str] = field(default_factory=lambda: ["."])
+    skill_max_loaded: int = 64
+    skill_script_timeout_seconds: float = 10.0
+
+    find_skill_enabled: bool = False
+    find_skill_auto_open_login: bool = True
+    find_skill_search_cmd: str = 'find-skill search "{query}" --json'
+    find_skill_install_cmd: str = 'find-skill install "{skill_id}"'
+    find_skill_invoke_cmd: str = 'find-skill invoke "{skill_id}" --task "{task}" --json'
+    find_skill_login_cmd: str = 'find-skill login "{skill_id}"'

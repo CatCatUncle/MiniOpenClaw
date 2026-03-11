@@ -20,6 +20,21 @@ Common fields:
 - `MINICLAW_PROVIDER=gemini|openai|claude|ark|openai_compat`
 - `MINICLAW_MODEL=...`
 - Provider API keys (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `ARK_API_KEY`)
+- Memory:
+  - `MINICLAW_MEMORY_ENABLED=true|false`
+  - `MINICLAW_MEMORY_PATH=~/.miniopenclaw/memory.json`
+  - `MINICLAW_MEMORY_RETRIEVE_K=4`
+- Skills:
+  - `MINICLAW_SKILL_ENABLED=true|false`
+  - `MINICLAW_SKILL_PATHS=.,/absolute/path/to/skills`
+  - `MINICLAW_SKILL_SCRIPT_TIMEOUT_SECONDS=10`
+- find-skill + MCP flow:
+  - `MINICLAW_FIND_SKILL_ENABLED=true|false`
+  - `MINICLAW_FIND_SKILL_AUTO_OPEN_LOGIN=true|false`
+  - `MINICLAW_FIND_SKILL_SEARCH_CMD='find-skill search "{query}" --json'`
+  - `MINICLAW_FIND_SKILL_INSTALL_CMD='find-skill install "{skill_id}"'`
+  - `MINICLAW_FIND_SKILL_INVOKE_CMD='find-skill invoke "{skill_id}" --task "{task}" --json'`
+  - `MINICLAW_FIND_SKILL_LOGIN_CMD='find-skill login "{skill_id}"'`
 
 ## CLI Usage
 
@@ -40,6 +55,48 @@ One-shot mode:
 ```bash
 uv run python -m miniopenclaw agent -m "hello"
 ```
+
+### Skill Triggering
+
+Skill files are discovered as `SKILL.md` under `MINICLAW_SKILL_PATHS`.
+
+You can explicitly trigger a skill in conversation:
+
+```text
+$frontend-design 帮我做一个登录页
+```
+
+or
+
+```text
+使用技能 frontend-design 帮我优化页面
+```
+
+Use `--logs` to inspect skill/memory traces in `metadata`.
+
+Interactive debug commands:
+- `/skills` or `/skills list`
+- `/skills refresh`
+- `/skills match <text>`
+- `/skills show <name>`
+- `/skills suggest <purpose>`
+- `/skills create <name> [description]`
+- `/findskill <query>` or `/findskill <query> || <task>`
+
+`/findskill` workflow:
+1. Search skill by query
+2. Install matched skill
+3. Invoke mapped MCP capability
+4. If login URL is detected, auto-open browser for QR/login
+
+If `find-skill` binary is not installed, MiniOpenClaw falls back to local mode:
+- search from local `SKILL.md` (using `MINICLAW_SKILL_PATHS`)
+- return matched skill guidance and suggested `$skill-name` trigger
+
+If local match also fails, it will try an online GitHub fallback:
+- search public repositories by query
+- attempt to fetch `SKILL.md` from repo root/`skills/`/`.codex/`
+- install to local `./skills/<repo>-remote/`
 
 ## Gateway (Multi-Channel)
 

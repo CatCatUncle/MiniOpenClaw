@@ -5,6 +5,7 @@ from __future__ import annotations
 from miniopenclaw.config.schema import Config
 from miniopenclaw.tools.base import Tool
 from miniopenclaw.tools.file_tools import AppendFileTool, ReadFileTool, WriteFileTool
+from miniopenclaw.tools.find_skill import FindSkillTool
 from miniopenclaw.tools.shell_tool import ShellTool
 from miniopenclaw.tools.web_search import WebSearchTool
 
@@ -43,6 +44,18 @@ def build_default_registry(config: Config) -> ToolRegistry:
             brave_api_key=config.brave_search_api_key,
             tavily_api_key=config.tavily_api_key,
             timeout_seconds=config.timeout_seconds,
+        )
+    )
+    registry.register(
+        FindSkillTool(
+            enabled=config.find_skill_enabled,
+            search_template=config.find_skill_search_cmd,
+            install_template=config.find_skill_install_cmd,
+            invoke_template=config.find_skill_invoke_cmd,
+            login_template=config.find_skill_login_cmd,
+            auto_open_login=config.find_skill_auto_open_login,
+            skill_paths=config.skill_paths,
+            workspace_root=config.workspace_root,
         )
     )
     return registry

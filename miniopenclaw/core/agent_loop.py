@@ -5,11 +5,14 @@ from __future__ import annotations
 import ast
 import json
 import re
+from pathlib import Path
 from typing import Protocol
 
 from miniopenclaw.core.events import AgentResponse, AgentStatus, MessageEvent
+from miniopenclaw.memory import MemoryStore
 from miniopenclaw.providers.base import BaseProvider, ChatMessage
 from miniopenclaw.providers.errors import ProviderError
+from miniopenclaw.skills import SkillLoader
 from miniopenclaw.tools import ToolExecutor
 
 
@@ -25,12 +28,15 @@ class ProviderAgentLoop:
 
     _TOOL_BLOCK_PATTERN = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
     _TOOL_CODE_BLOCK_PATTERN = re.compile(r"<tool_code>\s*(.*?)\s*</tool_code>", re.DOTALL)
+    _PROMPT_FILE = Path(__file__).resolve().parents[1] / "prompts" / "system_core.txt"
 
     def __init__(
         self,
         provider: BaseProvider,
         model: str,
         tool_executor: ToolExecutor,
+        memory_store: MemoryStore | None = None,
+        skill_loader: SkillLoader | None = None,
         max_steps: int = 8,
         stream: bool = False,
     ) -> None:
@@ -38,6 +44,8 @@ class ProviderAgentLoop:
         self._model = model
         self._stream = stream
         self._tool_executor = tool_executor
+        self._memory_store = memory_store
+        self._skill_loader = skill_loader
         self._max_steps = max_steps
 
     def run(self, event: MessageEvent, context: list[MessageEvent]) -> AgentResponse:
@@ -55,7 +63,26 @@ class ProviderAgentLoop:
             )
 
     def _run_with_auto_tools(self, event: MessageEvent, context: list[MessageEvent]) -> AgentResponse:
-        messages = self._build_messages(context=context, event=event)
+        skill_hints = ""
+        skill_trace: dict = {"selected": []}
+        if self._skill_loader is not None:
+            selected_skills, skill_trace = self._skill_loader.resolve_for_text(event.content)
+            skill_hints = self._skill_loader.render_system_hints(selected_skills)
+
+        memory_hints = ""
+        memory_trace: dict = {"retrieved_count": 0}
+        if self._memory_store is not None:
+            session_key = MemoryStore.session_key(event)
+            items, trace = self._memory_store.retrieve(session_key=session_key, query=event.content)
+            memory_trace = trace
+            memory_hints = self._memory_store.render_context(items)
+
+        messages = self._build_messages(
+            context=context,
+            event=event,
+            skill_hints=skill_hints,
+            memory_hints=memory_hints,
+        )
         all_tool_calls = []
 
         for _step in range(1, self._max_steps + 1):
@@ -72,13 +99,17 @@ class ProviderAgentLoop:
                 fallback = None
                 if not all_tool_calls:
                     fallback = self._fallback_write_if_needed(event.content, cleaned)
-                if fallback:
-                    all_tool_calls.append(fallback)
-                    if fallback.error:
-                        cleaned = f"{cleaned}\n\n[Auto-write failed] {fallback.error}"
-                    else:
-                        cleaned = f"{cleaned}\n\n已自动写入本地文件。"
-                return AgentResponse(text=cleaned, tool_calls=all_tool_calls)
+                    if fallback:
+                        all_tool_calls.append(fallback)
+                        if fallback.error:
+                            cleaned = f"{cleaned}\n\n[Auto-write failed] {fallback.error}"
+                        else:
+                            cleaned = f"{cleaned}\n\n已自动写入本地文件。"
+                return AgentResponse(
+                    text=cleaned,
+                    tool_calls=all_tool_calls,
+                    metadata={"skills": skill_trace, "memory": memory_trace},
+                )
 
             tool_result_lines: list[str] = []
             for item in parsed_calls:
@@ -113,7 +144,7 @@ class ProviderAgentLoop:
             ),
             status=AgentStatus.ERROR,
             tool_calls=all_tool_calls,
-            metadata={"error_kind": "max_steps"},
+            metadata={"error_kind": "max_steps", "skills": skill_trace, "memory": memory_trace},
         )
 
     def _run_task_loop(self, event: MessageEvent) -> AgentResponse:
@@ -261,6 +292,8 @@ class ProviderAgentLoop:
             "shell",
             "web_search",
             "webSearch",
+            "find_skill",
+            "findSkill",
         }
         if name not in known:
             return None
@@ -300,6 +333,8 @@ class ProviderAgentLoop:
             "shell": "shell",
             "web_search": "web_search",
             "webSearch": "web_search",
+            "find_skill": "find_skill",
+            "findSkill": "find_skill",
         }
         normalized_name = alias_map.get(name, name)
 
@@ -309,6 +344,10 @@ class ProviderAgentLoop:
             args["command"] = args.pop("cmd")
         if "queryText" in args and "query" not in args:
             args["query"] = args.pop("queryText")
+        if "skillId" in args and "skill_id" not in args:
+            args["skill_id"] = args.pop("skillId")
+        if "openLogin" in args and "open_login" not in args:
+            args["open_login"] = args.pop("openLogin")
         if normalized_name == "write_file" and "confirm" not in args:
             # Model-triggered writes default to confirmed to avoid stalled overwrite loops.
             args["confirm"] = True
@@ -355,32 +394,23 @@ class ProviderAgentLoop:
         return f"docs/{core}.md"
 
     @staticmethod
-    def _build_messages(context: list[MessageEvent], event: MessageEvent) -> list[ChatMessage]:
+    def _build_messages(
+        context: list[MessageEvent],
+        event: MessageEvent,
+        skill_hints: str = "",
+        memory_hints: str = "",
+    ) -> list[ChatMessage]:
+        system_prompt = ProviderAgentLoop._load_system_prompt()
         messages: list[ChatMessage] = [
             {
                 "role": "system",
-                "content": (
-                    "Respond in the same language as the user's latest message by default. "
-                    "Only switch language when the user explicitly asks for it. "
-                    "Available local tools are strictly: readFile/read_file, writeFile/write_file, "
-                    "appendFile/append_file, shell, web_search. "
-                    "Do not invent other tool names. "
-                    "Never output <tool_code> blocks, markdown code fences, or pseudo-code for tool use. "
-                    "For tool usage, output only strict JSON inside <tool_call>...</tool_call>. "
-                    "Each <tool_call> must contain exactly: "
-                    "{\"name\":\"<tool_name>\",\"arguments\":{...}}. "
-                    "For local file-saving requests (e.g. '写入吧', '保存到本地'), execute tools directly "
-                    "without asking for extra permission as long as the path is inside workspace. "
-                    "If target folder seems missing, still proceed with write_file (it can create parent folders) "
-                    "or use shell mkdir -p then write. "
-                    "If local tools are needed, output one or more tool calls using exactly this format:\n"
-                    "<tool_call>\n"
-                    "{\"name\":\"readFile\",\"arguments\":{\"filePath\":\"README.md\"}}\n"
-                    "</tool_call>\n"
-                    "After receiving tool results, provide final plain-text answer."
-                ),
+                "content": system_prompt,
             }
         ]
+        if skill_hints:
+            messages.append({"role": "system", "content": skill_hints})
+        if memory_hints:
+            messages.append({"role": "system", "content": memory_hints})
         for item in context:
             role = item.metadata.get("role", "user")
             if role not in {"system", "user", "assistant"}:
@@ -406,3 +436,15 @@ class ProviderAgentLoop:
         if re.search(r"[\uac00-\ud7af]", text):
             return "Korean"
         return "English"
+
+    @staticmethod
+    def _load_system_prompt() -> str:
+        fallback = (
+            "Respond in the same language as the user's latest message by default. "
+            "Use only declared tools and return strict <tool_call> JSON when calling tools."
+        )
+        try:
+            text = ProviderAgentLoop._PROMPT_FILE.read_text(encoding="utf-8").strip()
+            return text or fallback
+        except Exception:
+            return fallback

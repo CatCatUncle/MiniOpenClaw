@@ -100,4 +100,31 @@ def load_config() -> Config:
         feishu_allow_from=_to_list(os.getenv("FEISHU_ALLOW_FROM"), []),
         feishu_allow_chat_ids=_to_list(os.getenv("FEISHU_ALLOW_CHAT_IDS"), []),
         feishu_max_chunk_chars=_to_int(os.getenv("FEISHU_MAX_CHUNK_CHARS"), 1800),
+        memory_enabled=_to_bool(os.getenv("MINICLAW_MEMORY_ENABLED"), True),
+        memory_path=os.getenv("MINICLAW_MEMORY_PATH", "~/.miniopenclaw/memory.json"),
+        memory_max_items=_to_int(os.getenv("MINICLAW_MEMORY_MAX_ITEMS"), 400),
+        memory_retrieve_k=_to_int(os.getenv("MINICLAW_MEMORY_RETRIEVE_K"), 4),
+        memory_summary_max_chars=_to_int(os.getenv("MINICLAW_MEMORY_SUMMARY_MAX_CHARS"), 360),
+        skill_enabled=_to_bool(os.getenv("MINICLAW_SKILL_ENABLED"), True),
+        skill_paths=_to_list(os.getenv("MINICLAW_SKILL_PATHS"), ["."]),
+        skill_max_loaded=_to_int(os.getenv("MINICLAW_SKILL_MAX_LOADED"), 64),
+        skill_script_timeout_seconds=_to_float(os.getenv("MINICLAW_SKILL_SCRIPT_TIMEOUT_SECONDS"), 10.0),
+        find_skill_enabled=_to_bool(os.getenv("MINICLAW_FIND_SKILL_ENABLED"), False),
+        find_skill_auto_open_login=_to_bool(os.getenv("MINICLAW_FIND_SKILL_AUTO_OPEN_LOGIN"), True),
+        find_skill_search_cmd=os.getenv(
+            "MINICLAW_FIND_SKILL_SEARCH_CMD",
+            'find-skill search "{query}" --json',
+        ),
+        find_skill_install_cmd=os.getenv(
+            "MINICLAW_FIND_SKILL_INSTALL_CMD",
+            'find-skill install "{skill_id}"',
+        ),
+        find_skill_invoke_cmd=os.getenv(
+            "MINICLAW_FIND_SKILL_INVOKE_CMD",
+            'find-skill invoke "{skill_id}" --task "{task}" --json',
+        ),
+        find_skill_login_cmd=os.getenv(
+            "MINICLAW_FIND_SKILL_LOGIN_CMD",
+            'find-skill login "{skill_id}"',
+        ),
     )
